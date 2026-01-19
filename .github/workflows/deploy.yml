@@ -1,0 +1,38 @@
+name: Deploy Flask App to EC2
+
+on:
+  push:
+    branches: ["main"]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+
+            cd /home/ec2-user/flaskapp
+
+            # Pull latest code (EC2 folder is already a git repo)
+            git fetch origin main
+            git reset --hard origin/main
+
+            # Ensure venv exists
+            if [ ! -d "venv" ]; then
+              python3 -m venv venv
+            fi
+
+            # Install/update dependencies
+            /home/ec2-user/flaskapp/venv/bin/pip install --upgrade pip
+            /home/ec2-user/flaskapp/venv/bin/pip install -r /home/ec2-user/flaskapp/requirements.txt
+
+            # Restart service
+            sudo systemctl restart flaskapp
+            sudo systemctl status flaskapp --no-pager | head -n 20
